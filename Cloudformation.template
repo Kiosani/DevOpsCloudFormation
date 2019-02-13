@@ -1,7 +1,7 @@
 {
     "AWSTemplateFormatVersion": "2010-09-09",
     "Resources" : {
-        "JekoboVPC1" : {
+        "DevOps1VPC" : {
             "Type" : "AWS::EC2::VPC",
             "Properties" : {
                 "CidrBlock" : "10.0.0.0/16",
@@ -10,21 +10,13 @@
                 "InstanceTenancy" : "default"
             }
         },
-        "JekoboInternetGateway" : {
+        "DevOps1InternetGateway" : {
             "Type" : "AWS::EC2::InternetGateway"
         },
-        "JekoboVPC1PrivatSubnt" : {
+        "DevOps1Subnet" : {
             "Type" : "AWS::EC2::Subnet",
             "Properties" : {
-                "VpcId" : { "Ref" : "JekoboVPC1" },
-                "CidrBlock" : "10.0.0.0/24",
-                "AvailabilityZone" : "eu-central-1a"
-            }
-        },
-        "JekoboVPC1PublicSubnt" : {
-            "Type" : "AWS::EC2::Subnet",
-            "Properties" : {
-                "VpcId" : { "Ref" : "JekoboVPC1" },
+                "VpcId" : { "Ref" : "DevOps1VPC" },
                 "CidrBlock" : "10.0.1.0/24",
                 "AvailabilityZone" : "eu-central-1a"
             }
@@ -32,50 +24,37 @@
         "AttachGateway" : {
             "Type" : "AWS::EC2::VPCGatewayAttachment",
             "Properties" : {
-                "VpcId" : { "Ref" : "JekoboVPC1" },
-                "InternetGatewayId" : { "Ref" : "JekoboInternetGateway" }
+                "VpcId" : { "Ref" : "DevOps1VPC" },
+                "InternetGatewayId" : { "Ref" : "DevOps1InternetGateway" }
             }
         },
-        "JekoboRouteTablePrivat" : {
+        "DevOps1RouteTable" : {
             "Type" : "AWS::EC2::RouteTable",
             "Properties" : {
-                "VpcId" : { "Ref" : "JekoboVPC1" }
+                "VpcId" : { "Ref" : "DevOps1VPC" }
             }
         },
-        "JekoboRouteTablePublic" : {
-            "Type" : "AWS::EC2::RouteTable",
-            "Properties" : {
-                "VpcId" : { "Ref" : "JekoboVPC1" }
-            }
-        },
-        "PrivatSubnetRouteTableAssociation" : {
+        "DevOps1SubnetRouteTableAssociation" : {
             "Type" : "AWS::EC2::SubnetRouteTableAssociation",
             "Properties" : {
-                "SubnetId" : { "Ref" : "JekoboVPC1PrivatSubnt" },
-                "RouteTableId" : { "Ref" : "JekoboRouteTablePrivat" }
+                "SubnetId" : { "Ref" : "DevOps1Subnet" },
+                "RouteTableId" : { "Ref" : "DevOps1RouteTable" }
             }
         },
-        "PublicSubnetRouteTableAssociation" : {
-            "Type" : "AWS::EC2::SubnetRouteTableAssociation",
-            "Properties" : {
-                "SubnetId" : { "Ref" : "JekoboVPC1PublicSubnt" },
-                "RouteTableId" : { "Ref" : "JekoboRouteTablePublic" }
-            }
-        },
-        "RouteToPublic" : {
+        "DevOps1RouteToInternet" : {
             "Type" : "AWS::EC2::Route",
-            "DependsOn" : "JekoboInternetGateway",
+            "DependsOn" : "DevOps1InternetGateway",
             "Properties" : {
-                "RouteTableId" : { "Ref" : "JekoboRouteTablePublic" },
+                "RouteTableId" : { "Ref" : "DevOps1RouteTable" },
                 "DestinationCidrBlock" : "0.0.0.0/0",
-                "GatewayId" : { "Ref" : "JekoboInternetGateway" }
+                "GatewayId" : { "Ref" : "DevOps1InternetGateway" }
             }
         },
-        "JekobosInstanceSecurityGroup" : {
+        "DevOps1SecurityGroup" : {
             "Type" : "AWS::EC2::SecurityGroup",
             "Properties" : {
                 "GroupDescription" : "Allow http to client host",
-                "VpcId" : {"Ref" : "JekoboVPC1"},
+                "VpcId" : {"Ref" : "DevOps1VPC"},
                 "SecurityGroupIngress" : [{
                     "IpProtocol" : "tcp",
                     "FromPort" : 8086,
@@ -96,68 +75,18 @@
                 }]
             }
         },
-        "JekoboEC2Instance" : {
+        "DevOps1EC2Instance" : {
             "Type" : "AWS::EC2::Instance",
             "Properties" : {
                 "ImageId" : "ami-086a09d5b9fa35dc7",
-                "KeyName" : "Jekobo_docker_instance",
+                "KeyName" : "DevOps1Instance",
                 "InstanceType" : "t2.micro",
                 "NetworkInterfaces": [ {
                     "AssociatePublicIpAddress": "true",
                     "DeviceIndex": "0",
-                    "GroupSet": [{ "Ref" : "JekobosInstanceSecurityGroup" }],
-                    "SubnetId": { "Ref" : "JekoboVPC1PublicSubnt" }
-                } ],
-                "UserData": {
-                    "Fn::Base64": {
-                        "Fn::Join": [
-                            "\n",
-                            [
-                                "#!/bin/bash",
-                                "apt-get update",
-                                "apt-get -y install \\",
-                                "apt-transport-https \\",
-                                "ca-certificates \\",
-                                "curl \\",
-                                "software-properties-common",
-                                "curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -",
-                                "add-apt-repository \\",
-                                "\"deb [arch=amd64] https://download.docker.com/linux/ubuntu \\",
-                                "$(lsb_release -cs) \\",
-                                "stable\"",
-                                "apt-get update",
-                                "apt-get install -y docker-ce",
-                                "apt-get install -y git",
-                                "systemctl enable docker",
-                                "mkdir -p /opt/dockerbuildfiles",
-                                "mkdir -p /opt/www",
-                                "echo \"Hello Ihor Matviiets\" >> /opt/www/index.html",
-                                "mkdir -p /backupmysql",
-                                "git clone https://github.com/Kiosani/Docker.git /opt/dockerbuildfiles",
-                                "docker build -t nginx_my /opt/dockerbuildfiles",
-                                "docker run -d -v \"/opt/www:/usr/share/nginx/html\" -p 8086:8085 nginx_my",
-                                "docker run --name jekobo-mysql -e MYSQL_ROOT_PASSWORD=jekobo1234 -d mysql",
-                                "CHECK=1",
-                                "until [ $CHECK == 0 ]; do",
-                                "docker exec -i jekobo-mysql mysql -uroot -pjekobo1234  <<< exit >/dev/null 2>&1",
-                                "CHECK=$(echo $?)",
-                                "sleep 5",
-                                "done",
-                                "docker exec -i jekobo-mysql mysql -uroot -pjekobo1234  <<< \"CREATE DATABASE jekobodb;\"",
-                                "docker exec -i jekobo-mysql mysql -uroot -pjekobo1234  <<< \"USE jekobodb;CREATE TABLE MyGuests (",
-                                "id INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY,",
-                                "firstname VARCHAR(30) NOT NULL,",
-                                "lastname VARCHAR(30) NOT NULL,",
-                                "email VARCHAR(50),",
-                                "reg_date TIMESTAMP",
-                                ");\"",
-                                "(crontab -l 2>/dev/null; echo \"*/5 * * * *    docker exec jekobo-mysql /usr/bin/mysqldump -u root --password=jekobo1234 jekobodb > /backupmysql/backup.sql\") | crontab -",
-                                "docker pull jenkins/jenkins",
-                                "docker pull jenkins/jenkins:lts"
-                            ]
-                        ]
-                    }
-                }
+                    "GroupSet": [{ "Ref" : "DevOps1SecurityGroup" }],
+                    "SubnetId": { "Ref" : "DevOps1Subnet" }
+                } ]
             }
         }
     }
