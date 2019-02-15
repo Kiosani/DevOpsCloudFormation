@@ -79,7 +79,7 @@
             "Type" : "AWS::EC2::Instance",
             "Properties" : {
                 "ImageId" : "ami-086a09d5b9fa35dc7",
-                "KeyName" : "DevOps1Instance",
+                "KeyName" : "CICD",
                 "InstanceType" : "t2.micro",
                 "NetworkInterfaces": [ {
                     "AssociatePublicIpAddress": "true",
